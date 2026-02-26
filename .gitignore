@@ -1,2 +1,5 @@
 venv
 relatorio_aprovadores.xlsx
+.env
+__pycache__
+users_sap.xlsx

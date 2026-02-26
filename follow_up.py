@@ -2,6 +2,8 @@ import pandas as pd
 
 def enviar_mensagens(df, token, layout, requests):
 
+    df = df.loc[df['Aprovadores'] != 'ERROR']
+
     url = 'https://slack.com/api/chat.postMessage'
     
     headers = {
@@ -26,16 +28,29 @@ def enviar_mensagens(df, token, layout, requests):
         }
 
         requests.post(url=url, headers=headers, json=data)
-        
-        print(mensagem_final)
 
 def limpeza_dados(pd):
 
     df = pd.read_excel(
         'relatorio_aprovadores.xlsx', engine= 'calamine'
     )
+
     colunas = ['Empresa', 'Nome do fornecedor', 'Tipo Documento', 'Documento','Status Tarefa', 'Centro de Custo', 'Vencimento', 'Aprovadores']
+    
+    # 1. Primeiro, transformamos a string "Letícia, Raimundo" em uma lista ['Letícia', 'Raimundo']
+    df['Aprovadores'] = df['Aprovadores'].str.split(',')
+
+    # 2. O explode transforma cada item da lista em uma nova linha
+    df = df.explode('Aprovadores')
+
+    # 3. Importante: Como geralmente tem um espaço após a vírgula, limpamos os espaços extras
+    df['Aprovadores'] = df['Aprovadores'].str.strip()
+
+    # Resetar o index é opcional, mas recomendado para evitar índices duplicados
+    df = df.reset_index(drop=True)
+
     df = df[colunas]
+    
     df['Vencimento'] = pd.to_datetime(df['Vencimento'], errors='coerce')
     
     df.sort_values('Documento', inplace=True)
@@ -50,7 +65,7 @@ def limpeza_dados(pd):
 
 def buscar_id_slack(df):
 
-    aprovadores = pd.read_excel('Trabalhadores (2).xlsx')
+    aprovadores = pd.read_excel('users_sap.xlsx')
 
     aprovadores = aprovadores[['ID do usuário','Nome', 'ID Slack']]
 
