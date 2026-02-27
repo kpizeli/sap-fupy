@@ -24,7 +24,7 @@ def enviar_mensagens(df, token, layout, requests):
         mensagem_final = layout.substitute(dados_do_fup)
 
         data = {
-        'channel': 'U072798C68L',
+        'channel': row['ID Slack Aprovador'],
         'text': mensagem_final,
         }
 
