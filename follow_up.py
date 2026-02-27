@@ -14,11 +14,12 @@ def enviar_mensagens(df, token, layout, requests):
     for index, row in df.iterrows():
 
         dados_do_fup = {
-        'ID_Slack' : row['ID Slack'],
+        'ID_Aprovador' : row['ID Slack Aprovador'],
         'doc': str(row['Documento']).split('.')[0],
         'fornecedor': row['Nome do fornecedor'],
         'centro_custo': row['Centro de Custo'],
         'tipo_documento': row['Tipo Documento'],
+        'ID_comprador': row['ID Slack Comprador'],
     }
         mensagem_final = layout.substitute(dados_do_fup)
 
@@ -35,7 +36,7 @@ def limpeza_dados(pd):
         'relatorio_aprovadores.xlsx', engine= 'calamine'
     )
 
-    colunas = ['Empresa', 'Nome do fornecedor', 'Tipo Documento', 'Documento','Status Tarefa', 'Centro de Custo', 'Vencimento', 'Aprovadores']
+    colunas = ['Empresa', 'Nome do fornecedor', 'Tipo Documento', 'Documento','Status Tarefa', 'Centro de Custo', 'Vencimento', 'Aprovadores', 'Criado por']
     
     # 1. Primeiro, transformamos a string "Letícia, Raimundo" em uma lista ['Letícia', 'Raimundo']
     df['Aprovadores'] = df['Aprovadores'].str.split(',')
@@ -55,7 +56,7 @@ def limpeza_dados(pd):
     
     df.sort_values('Documento', inplace=True)
 
-    filtro = (df['Status Tarefa'] == 'Ag. Aprovação') & (df['Tipo Documento'] == 'Contrato de Compras')
+    filtro = (df['Status Tarefa'] == 'Ag. Aprovação') & ((df['Tipo Documento'] == 'Contrato de Compras') | (df['Tipo Documento'] == 'Pedido de Compras'))
     df = df.loc[filtro].reset_index(drop=True)
     
     # Garante que Documento seja lido como string limpa
@@ -64,14 +65,22 @@ def limpeza_dados(pd):
     return df
 
 def buscar_id_slack(df):
+    # Carrega a base de referência (mantendo o nome original da coluna de busca)
+    usuarios = pd.read_excel('users_sap.xlsx')[['Nome', 'ID Slack']]
 
-    aprovadores = pd.read_excel('users_sap.xlsx')
+    # 1. Merge para o Aprovador
+    # Usamos left_on (coluna no df principal) e right_on (coluna na planilha de usuários)
+    df = pd.merge(df, usuarios, left_on='Aprovadores', right_on='Nome', how='left')
+    
+    # Renomeia o ID Slack que acabou de chegar e dropa a coluna 'Nome' que vem de brinde no merge
+    df.rename(columns={'ID Slack': 'ID Slack Aprovador'}, inplace=True)
+    df.drop(columns=['Nome'], inplace=True)
 
-    aprovadores = aprovadores[['ID do usuário','Nome', 'ID Slack']]
-
-    # A forma correta de renomear colunas
-    aprovadores.rename(columns={'Nome': 'Aprovadores'}, inplace=True)
-
-    df = pd.merge(df, aprovadores, on='Aprovadores', how='left')
+    # 2. Merge para o Comprador (Criado por)
+    df = pd.merge(df, usuarios, left_on='Criado por', right_on='Nome', how='left')
+    
+    # Renomeia para o nome que você quer e dropa o 'Nome' extra de novo
+    df.rename(columns={'ID Slack': 'ID Slack Comprador'}, inplace=True)
+    df.drop(columns=['Nome'], inplace=True)
 
     return df
